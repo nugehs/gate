@@ -1,9 +1,11 @@
 #!/usr/bin/env node
+import { pathToFileURL } from 'node:url';
 import { runGate } from './orchestrator.js';
 import { renderTerminal } from './report/terminal.js';
 import { ADAPTERS } from './adapters/index.js';
 
 const TOOLS = ADAPTERS.map((a) => a.tool);
+const KNOWN = new Set(TOOLS);
 
 const HELP = `gate — one verdict from aiglare, bouncer, tieline & repoctx
 
@@ -20,6 +22,9 @@ Options:
   --skip <list>     Skip these tools
   -h, --help        Show this help
 
+A run where no domain actually executes (everything skipped or deselected) is
+NOT a pass — under --ci it fails, so a typo can't silently defeat the gate.
+
 Tool resolution (per tool, first hit wins):
   1. GATE_<TOOL>_BIN env var   2. installed @nugehs/<tool>   3. ../<tool> sibling checkout
 
@@ -31,53 +36,67 @@ Examples:
 `;
 
 function parseList(v) {
-  if (!v) return [];
   return v
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
 }
 
-function parseArgs(argv) {
-  const args = { path: process.cwd(), json: false, ci: false, strict: false, only: null, skip: [] };
+/**
+ * Pure arg parser — returns `{ help }`, `{ error: {code, message} }`, or `{ args }`.
+ * Kept side-effect-free (no process.exit, no process.cwd) so it is unit-testable.
+ */
+export function parseArgs(argv) {
+  const args = { path: null, json: false, ci: false, strict: false, only: null, skip: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '-h' || a === '--help') {
-      process.stdout.write(HELP);
-      process.exit(0);
+      return { help: true };
     } else if (a === '--json') {
       args.json = true;
     } else if (a === '--ci') {
       args.ci = true;
     } else if (a === '--strict') {
       args.strict = true;
-    } else if (a === '--only') {
-      args.only = parseList(argv[++i]);
-    } else if (a === '--skip') {
-      args.skip = parseList(argv[++i]);
+    } else if (a === '--only' || a === '--skip') {
+      const v = argv[i + 1];
+      if (v === undefined || v.startsWith('-')) {
+        return { error: { code: 2, message: `${a} requires a comma-separated tool list (${TOOLS.join(',')})` } };
+      }
+      i++;
+      const list = parseList(v);
+      if (list.length === 0) {
+        return { error: { code: 2, message: `${a} requires at least one tool` } };
+      }
+      const unknown = list.filter((t) => !KNOWN.has(t));
+      if (unknown.length) {
+        return { error: { code: 2, message: `Unknown tool: ${unknown.join(', ')} (expected one of ${TOOLS.join(', ')})` } };
+      }
+      if (a === '--only') args.only = list;
+      else args.skip = list;
     } else if (a.startsWith('-')) {
-      console.error(`Unknown option: ${a}`);
-      process.exit(2);
+      return { error: { code: 2, message: `Unknown option: ${a}` } };
     } else {
       args.path = a;
     }
   }
-
-  const known = new Set(TOOLS);
-  for (const t of [...(args.only ?? []), ...args.skip]) {
-    if (!known.has(t)) {
-      console.error(`Unknown tool: ${t} (expected one of ${TOOLS.join(', ')})`);
-      process.exit(2);
-    }
-  }
-  return args;
+  return { args };
 }
 
 async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const result = await runGate(args);
+  const parsed = parseArgs(process.argv.slice(2));
+  if (parsed.help) {
+    process.stdout.write(HELP);
+    process.exit(0);
+  }
+  if (parsed.error) {
+    console.error(parsed.error.message);
+    process.exit(parsed.error.code);
+  }
 
-  if (args.json) {
+  const result = await runGate(parsed.args);
+
+  if (parsed.args.json) {
     process.stdout.write(JSON.stringify(result, null, 2) + '\n');
   } else {
     process.stdout.write(renderTerminal(result) + '\n');
@@ -86,7 +105,10 @@ async function main() {
   if (result.gate.failed) process.exit(1);
 }
 
-main().catch((e) => {
-  console.error(`gate: ${e?.stack ?? e}`);
-  process.exit(2);
-});
+// Only run when invoked as a binary — importing this module (e.g. in tests) is side-effect-free.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((e) => {
+    console.error(`gate: ${e?.stack ?? e}`);
+    process.exit(2);
+  });
+}

@@ -57,6 +57,7 @@ export function mergeVerdict(domains, { ci = false, strict = false } = {}) {
 
   // SKIPPED domains do not influence the verdict — the check simply did not apply.
   const ran = domains.filter((d) => d.status !== STATUS.SKIPPED);
+  const nothingChecked = ran.length === 0;
   let rank = 0;
   for (const d of ran) rank = Math.max(rank, RANK[d.status] ?? 0);
   const verdict = statusForRank(rank);
@@ -66,12 +67,17 @@ export function mergeVerdict(domains, { ci = false, strict = false } = {}) {
     (strict && (d.status === STATUS.WARN || d.status === STATUS.UNKNOWN || d.status === STATUS.ERROR));
 
   const reasons = domains.filter(blocks).map((d) => `${d.label}: ${d.summary}`);
-  const failed = ci && (verdict === STATUS.FAIL || (strict && verdict === STATUS.WARN));
+  // A gate that checked nothing must not read as a clean pass — that's how a
+  // typo (`--skip` everything, a bare trailing `--only`) silently defeats CI.
+  if (nothingChecked) reasons.unshift('no checks ran — every domain was skipped or deselected');
+
+  const failed = ci && (verdict === STATUS.FAIL || nothingChecked || (strict && verdict === STATUS.WARN));
+  counts.ran = ran.length;
 
   return {
     verdict,
-    ok: verdict !== STATUS.FAIL,
+    ok: verdict !== STATUS.FAIL && !nothingChecked,
     summary: counts,
-    gate: { ci, strict, failed, reasons },
+    gate: { ci, strict, failed, nothingChecked, reasons },
   };
 }

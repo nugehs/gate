@@ -36,8 +36,31 @@ test('skipped is invisible to the verdict', () => {
   assert.equal(r.summary.skipped, 1);
 });
 
-test('all skipped → PASS (nothing applied)', () => {
-  assert.equal(mergeVerdict([dom('a', STATUS.SKIPPED), dom('b', STATUS.SKIPPED)]).verdict, 'pass');
+test('all skipped → nothingChecked, not a clean pass', () => {
+  const r = mergeVerdict([dom('a', STATUS.SKIPPED), dom('b', STATUS.SKIPPED)]);
+  assert.equal(r.gate.nothingChecked, true);
+  assert.equal(r.ok, false); // a gate that checked nothing is not "clean"
+  assert.equal(r.summary.ran, 0);
+  assert.match(r.gate.reasons[0], /no checks ran/);
+});
+
+test('no domains at all → nothingChecked', () => {
+  const r = mergeVerdict([]);
+  assert.equal(r.gate.nothingChecked, true);
+  assert.equal(r.ok, false);
+});
+
+test('nothingChecked blocks under --ci (typo cannot defeat the gate)', () => {
+  // e.g. `gate --skip aiglare,bouncer,tieline,repoctx --ci`
+  assert.equal(mergeVerdict([dom('a', STATUS.SKIPPED)], { ci: true }).gate.failed, true);
+  assert.equal(mergeVerdict([], { ci: true }).gate.failed, true);
+});
+
+test('at least one ran domain → not nothingChecked', () => {
+  const r = mergeVerdict([dom('a', STATUS.PASS), dom('b', STATUS.SKIPPED)]);
+  assert.equal(r.gate.nothingChecked, false);
+  assert.equal(r.ok, true);
+  assert.equal(r.summary.ran, 1);
 });
 
 test('--ci sets gate.failed only on FAIL by default', () => {

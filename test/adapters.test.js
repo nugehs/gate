@@ -81,8 +81,13 @@ test('tieline: only unverifiable → WARN', () => {
   assert.equal(tieline.normalize({ totals: { matched: 5, drift: 0, unverifiable: 3, dead: 0 } }).status, STATUS.WARN);
 });
 
-test('tieline: empty totals → SKIPPED', () => {
-  assert.equal(tieline.normalize({ totals: { matched: 0, drift: 0, unverifiable: 0, dead: 0 } }).status, STATUS.SKIPPED);
+test('tieline: configured-but-empty totals → WARN (never "not configured")', () => {
+  // normalize() is only reached when tieline ran cleanly (genuine no-config is
+  // caught by skip()), so all-zero totals mean a stale/empty config, not absence.
+  const r = tieline.normalize({ totals: { matched: 0, drift: 0, unverifiable: 0, dead: 0 } });
+  assert.equal(r.status, STATUS.WARN);
+  assert.doesNotMatch(r.summary, /not configured/);
+  assert.match(r.summary, /empty|resolved/i);
 });
 
 test('repoctx: WARN verdict maps to WARN', () => {

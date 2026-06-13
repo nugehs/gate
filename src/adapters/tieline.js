@@ -28,10 +28,14 @@ export default {
   normalize(json) {
     const t = json.totals ?? { matched: 0, drift: 0, unverifiable: 0, dead: 0 };
     const empty = !t.matched && !t.drift && !t.unverifiable && !t.dead;
+    // Reaching normalize() means tieline ran cleanly with a config loaded (the
+    // genuine "no config" case is caught earlier by skip()). So all-zero totals
+    // mean "configured but resolved nothing" — a likely stale config, not an
+    // absent one. Surface it as WARN; never claim "not configured".
     if (empty) {
       return {
-        status: STATUS.SKIPPED,
-        summary: 'no contract map (not configured)',
+        status: STATUS.WARN,
+        summary: 'contract map empty — 0 endpoints resolved (stale config?)',
         counts: t,
         findings: [],
       };

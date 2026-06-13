@@ -46,9 +46,7 @@
     "ai-governance",
     "contract-drift",
     "static-analysis",
-    "monorepo",
-    "mcp",
-    "model-context-protocol"
+    "monorepo"
   ],
   "author": "Oluwasegun Olumbe",
   "license": "MIT"

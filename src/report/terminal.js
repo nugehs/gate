@@ -50,7 +50,11 @@ export function renderTerminal(result) {
   if (c.skipped) tail.push(`${c.skipped} skipped`);
   const tailStr = tail.length ? color.dim(` — ${tail.join(' · ')}`) : '';
 
-  lines.push(`  verdict: ${verdictWord}${tailStr}`);
+  if (result.gate.nothingChecked) {
+    lines.push(`  verdict: ${color.yellow(color.bold('NO CHECKS RAN'))}${color.dim(' — every domain was skipped or deselected')}`);
+  } else {
+    lines.push(`  verdict: ${verdictWord}${tailStr}`);
+  }
 
   if (result.gate.failed) {
     lines.push('');
