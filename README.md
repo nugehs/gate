@@ -74,6 +74,17 @@ slips through as a silent pass.
 > so a tool that `process.exit()`s before flushing its pipe can't truncate the
 > report it feeds us.
 
+**A run that checked nothing is not a pass.** If every domain is skipped or
+deselected (e.g. `--skip` them all, or a typo'd `--only`), gate reports **NO
+CHECKS RAN** (`ok:false`) and fails under `--ci` — a misconfiguration can't
+silently turn the gate green.
+
+**On repoctx + local mode.** repoctx's merge-readiness gate can only verify
+review state (approvals, CODEOWNERS, required checks) against a host like
+GitHub. Run locally it reports those as a `WARN`, so on a clean local repo gate
+will often show `merge readiness: warn`. That's repoctx being honest about what
+it can't see locally — not a problem with your change.
+
 ## CLI
 
 ```
@@ -85,6 +96,8 @@ gate [path] [options]
   --only <list>     Run only these tools (aiglare,bouncer,tieline,repoctx)
   --skip <list>     Skip these tools
   -h, --help        Show this help
+
+gate mcp            Start the MCP server (stdio)
 ```
 
 By default only a `fail` verdict blocks under `--ci` — safe to adopt without
@@ -111,12 +124,30 @@ For a machine-readable record, `--json` emits the full verdict (schema version,
 per-domain results, counts, and the blocking reasons) for dashboards or audit
 evidence.
 
+## MCP
+
+gate is also an MCP server, so an agent can ask "can this ship?" in one call —
+the unified verdict, not four separate tools.
+
+```
+gate mcp                 # stdio JSON-RPC server
+npx @nugehs/gate mcp
+```
+
+Tools:
+
+| Tool | Returns |
+| --- | --- |
+| `gate_check` | the unified verdict for a repo (`path`, optional `only`/`skip`/`ci`/`strict`) |
+| `list_checks` | the four checks gate runs, each with its domain and what it answers |
+
+Registry manifest: [`server.json`](server.json) (`io.github.nugehs/gate`).
+
 ## Roadmap
 
-gate is the shared spine. The same normalized verdict is meant to drive more
-than the CLI:
+gate is the shared spine. The same normalized verdict already drives the CLI,
+the `--ci` gate, and the MCP server above. Next clients on the same JSON:
 
-- **MCP server** — expose the unified verdict as one tool for agents (each of the four is already an MCP server).
 - **Web cockpit** — a repo/PR verdict board over the JSON, unifying the four `*-web` sites.
 - **Editor extension** — shift the gates left from CI into the editor as inline findings.
 

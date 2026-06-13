@@ -9,7 +9,7 @@ import { mergeVerdict, STATUS } from './verdict.js';
 
 const SCHEMA_VERSION = 1;
 
-async function runAdapter(adapter, ctx) {
+export async function runAdapter(adapter, ctx) {
   const base = { tool: adapter.tool, domain: adapter.domain, label: adapter.label };
 
   const resolved = resolveTool(adapter);

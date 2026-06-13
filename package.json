@@ -1,6 +1,7 @@
 {
   "name": "@nugehs/gate",
   "version": "0.1.0",
+  "mcpName": "io.github.nugehs/gate",
   "description": "gate — one ship/no-ship verdict from aiglare, bouncer, tieline & repoctx. The unified merge gate for the nugehs toolchain: run four deterministic checks, get one normalized verdict.",
   "type": "module",
   "bin": {
@@ -9,6 +10,8 @@
   },
   "files": [
     "src",
+    "scripts",
+    "server.json",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
@@ -16,7 +19,11 @@
   "scripts": {
     "start": "node src/cli.js",
     "gate": "node src/cli.js",
-    "test": "node --test test/*.test.js"
+    "mcp": "node src/cli.js mcp",
+    "version:check": "node scripts/check-version.js",
+    "version": "node scripts/sync-server-version.mjs && git add server.json",
+    "test": "node --test test/*.test.js",
+    "ci": "npm run version:check && npm test"
   },
   "engines": {
     "node": ">=18.18"
@@ -46,7 +53,9 @@
     "ai-governance",
     "contract-drift",
     "static-analysis",
-    "monorepo"
+    "monorepo",
+    "mcp",
+    "model-context-protocol"
   ],
   "author": "Oluwasegun Olumbe",
   "license": "MIT"

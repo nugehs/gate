@@ -2,6 +2,7 @@
 import { pathToFileURL } from 'node:url';
 import { runGate } from './orchestrator.js';
 import { renderTerminal } from './report/terminal.js';
+import { startMcpServer } from './mcp.js';
 import { ADAPTERS } from './adapters/index.js';
 
 const TOOLS = ADAPTERS.map((a) => a.tool);
@@ -21,6 +22,9 @@ Options:
   --only <list>     Run only these tools (comma-separated: ${TOOLS.join(',')})
   --skip <list>     Skip these tools
   -h, --help        Show this help
+
+Subcommand:
+  gate mcp          Start the MCP server (stdio) — exposes gate_check + list_checks
 
 A run where no domain actually executes (everything skipped or deselected) is
 NOT a pass — under --ci it fails, so a typo can't silently defeat the gate.
@@ -84,7 +88,13 @@ export function parseArgs(argv) {
 }
 
 async function main() {
-  const parsed = parseArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  if (argv[0] === 'mcp') {
+    await startMcpServer();
+    return;
+  }
+
+  const parsed = parseArgs(argv);
   if (parsed.help) {
     process.stdout.write(HELP);
     process.exit(0);
