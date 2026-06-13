@@ -2,12 +2,14 @@
 
 All notable changes to `@nugehs/gate` are documented here.
 
-## [Unreleased]
+## [0.2.0] - 2026-06-14
 
 - Findings now carry `file` and `line` where the underlying tool provides a
   location (aiglare surfaces, tieline drift), so editor clients can place
   diagnostics on the exact line. bouncer (missing-control absences) and repoctx
   (repo-level checks) remain location-free by nature.
+- Ships the VS Code / Cursor extension (`clients/vscode`) — unified verdict in
+  the status bar, an Explorer panel, and inline squiggles from the above.
 
 ## [0.1.1] - 2026-06-13
 
