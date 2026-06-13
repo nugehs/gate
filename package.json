@@ -1,6 +1,6 @@
 {
   "name": "@nugehs/gate",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "mcpName": "io.github.nugehs/gate",
   "description": "gate — one ship/no-ship verdict from aiglare, bouncer, tieline & repoctx. The unified merge gate for the nugehs toolchain: run four deterministic checks, get one normalized verdict.",
   "type": "module",
