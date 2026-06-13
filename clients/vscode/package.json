@@ -2,9 +2,10 @@
   "name": "gate",
   "displayName": "gate — unified verdict",
   "description": "One ship/no-ship verdict in your editor: aiglare, bouncer, tieline & repoctx via @nugehs/gate. Works in VS Code and Cursor.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "nugehs",
   "license": "MIT",
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -93,6 +94,7 @@
     }
   },
   "scripts": {
+    "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "test": "npm run compile && node --test test/*.test.js",

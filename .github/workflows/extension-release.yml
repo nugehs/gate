@@ -1,0 +1,60 @@
+name: Extension Release
+
+# Decoupled from the engine's `v*` tags: the extension ships on its own
+# `ext-v*` tags so its version can move independently of @nugehs/gate.
+on:
+  push:
+    tags:
+      - "ext-v*"
+
+permissions:
+  contents: write # attach the .vsix to a GitHub Release
+
+jobs:
+  publish-extension:
+    runs-on: ubuntu-latest
+    env:
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+    defaults:
+      run:
+        working-directory: clients/vscode
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - run: npm ci
+      - run: npm run compile && npm test
+
+      - name: Verify tag matches extension version
+        run: |
+          TAG="${GITHUB_REF_NAME#ext-v}"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "Tag ext-v$TAG does not match clients/vscode/package.json version $PKG" >&2
+            exit 1
+          fi
+
+      - name: Package .vsix
+        run: npx --yes @vscode/vsce package --no-dependencies
+
+      # Publishes only fire when the matching secret is configured; otherwise
+      # the run still produces a downloadable .vsix via the GitHub Release below.
+      - name: Publish to Open VSX (Cursor / VSCodium / Windsurf)
+        if: ${{ env.OVSX_PAT != '' }}
+        run: npx --yes ovsx publish *.vsix -p "$OVSX_PAT"
+
+      - name: Publish to VS Code Marketplace
+        if: ${{ env.VSCE_PAT != '' }}
+        run: npx --yes @vscode/vsce publish --no-dependencies -p "$VSCE_PAT"
+
+      - name: Attach .vsix to a GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" *.vsix \
+            --title "$GITHUB_REF_NAME" \
+            --notes "gate VS Code / Cursor extension $GITHUB_REF_NAME" \
+            --verify-tag
