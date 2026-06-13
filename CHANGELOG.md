@@ -2,7 +2,7 @@
 
 All notable changes to `@nugehs/gate` are documented here.
 
-## 0.1.0
+## [0.1.0] - 2026-06-13
 
 Initial release.
 
