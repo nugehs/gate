@@ -2,6 +2,13 @@
 
 All notable changes to `@nugehs/gate` are documented here.
 
+## [Unreleased]
+
+- Findings now carry `file` and `line` where the underlying tool provides a
+  location (aiglare surfaces, tieline drift), so editor clients can place
+  diagnostics on the exact line. bouncer (missing-control absences) and repoctx
+  (repo-level checks) remain location-free by nature.
+
 ## [0.1.1] - 2026-06-13
 
 Release-automation validation; no changes to the published CLI/library.

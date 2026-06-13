@@ -8,16 +8,19 @@ the unified verdict from **aiglare**, **bouncer**, **tieline** and **repoctx**.
 > for all of them. Install it from [Open VSX](https://open-vsx.org) or from a
 > packaged `.vsix`.
 
-## What you get (v1)
+## What you get
 
 - **Status bar** — `✓ / ⚠ / ✗ gate: VERDICT`. Click to re-check.
 - **`gate` panel** (Explorer) — the four checks with their status and summary,
-  expandable to findings.
+  expandable to findings (click a finding to jump to its line).
+- **Inline diagnostics** — squiggles on the exact line for findings that carry a
+  location: **aiglare** red surfaces and **tieline** drift. bouncer (a missing
+  control is an *absence*, no line) and repoctx (repo-level) stay in the panel.
 - **Command** — `gate: Check Workspace`.
 - **Run on save** — re-checks when you save (toggle with `gate.runOnSave`).
 
-Inline diagnostics (squiggles on the exact lines) are the next milestone — they
-need each tool's findings to carry `file:line`.
+> Squiggles need the engine to emit `file:line` (gate ≥ 0.2.0). Against an older
+> published gate the panel still works; the diagnostics simply stay empty.
 
 ## Requirements
 

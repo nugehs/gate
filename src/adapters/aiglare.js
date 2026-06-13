@@ -11,6 +11,15 @@ import { STATUS } from '../verdict.js';
 
 const isBlocking = (s) => s.severity === 'red' && s.sink === 'side-effectful';
 
+// aiglare puts line numbers in evidence strings like "file.ts:13 a.create()".
+function firstEvidenceLine(evidence) {
+  for (const e of evidence ?? []) {
+    const m = /:(\d+)\b/.exec(e);
+    if (m) return Number(m[1]);
+  }
+  return undefined;
+}
+
 export default {
   tool: 'aiglare',
   pkg: '@nugehs/aiglare',
@@ -60,6 +69,8 @@ export default {
         severity: 'red',
         title: x.file,
         sink: x.sink,
+        file: x.file, // relative to repo root
+        line: firstEvidenceLine(x.evidence),
       })),
     };
   },

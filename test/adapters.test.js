@@ -14,7 +14,7 @@ test('aiglare: red surface on a side-effectful sink → FAIL (blocking)', () => 
     surfaceCount: 16,
     summary: { red: 2, amber: 1, green: 13 },
     surfaces: [
-      { file: 'pay.ts', severity: 'red', sink: 'side-effectful' },
+      { file: 'pay.ts', severity: 'red', sink: 'side-effectful', evidence: ['pay.ts:42 client.create()'] },
       { file: 'reply.tsx', severity: 'red', sink: 'user-facing' },
     ],
   });
@@ -23,6 +23,8 @@ test('aiglare: red surface on a side-effectful sink → FAIL (blocking)', () => 
   assert.match(r.summary, /1 blocking side-effect/);
   assert.equal(r.counts.blocking, 1);
   assert.equal(r.findings[0].id, 'pay.ts'); // blocking surface ordered first
+  assert.equal(r.findings[0].file, 'pay.ts'); // enriched for diagnostics
+  assert.equal(r.findings[0].line, 42); // parsed from evidence
 });
 
 test('aiglare: red but only user-facing → WARN (not blocking)', () => {
@@ -70,11 +72,13 @@ test('bouncer: no findings → SKIPPED', () => {
 test('tieline: drift → FAIL', () => {
   const r = tieline.normalize({
     totals: { matched: 12, drift: 2, unverifiable: 0, dead: 1 },
-    drift: [{ method: 'GET', path: '/api/users/:id' }],
+    drift: [{ method: 'GET', path: '/api/users/:id', file: '/abs/src/api.ts', line: 160 }],
   });
   assert.equal(r.status, STATUS.FAIL);
   assert.match(r.summary, /2 drift/);
   assert.equal(r.findings[0].method, 'GET');
+  assert.equal(r.findings[0].file, '/abs/src/api.ts'); // enriched for diagnostics
+  assert.equal(r.findings[0].line, 160);
 });
 
 test('tieline: only unverifiable → WARN', () => {

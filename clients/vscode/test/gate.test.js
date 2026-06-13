@@ -2,7 +2,8 @@
 // (CommonJS — this extension package is not type:module.)
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { statusBarText, toTree, resolveGate, parseVerdict } = require('../out/gate.js');
+const path = require('node:path');
+const { statusBarText, toTree, toDiagnostics, resolveGate, parseVerdict } = require('../out/gate.js');
 
 function verdict(over = {}) {
   return {
@@ -83,4 +84,38 @@ test('parseVerdict: clean + banner-prefixed JSON', () => {
   assert.equal(parseVerdict('{"verdict":"pass"}').verdict, 'pass');
   assert.equal(parseVerdict('noise\n{"verdict":"warn"}\n').verdict, 'warn');
   assert.equal(parseVerdict('garbage'), null);
+});
+
+test('toDiagnostics: located findings → descriptors; relative resolved, absolute kept', () => {
+  const v = verdict({
+    repo: { root: '/work/app', name: 'app' },
+    domains: [
+      { tool: 'aiglare', label: 'AI governance', status: 'fail', summary: '', findings: [{ title: 'pay.ts', severity: 'red', file: 'src/pay.ts', line: 42 }] },
+      { tool: 'tieline', label: 'Contract drift', status: 'fail', summary: '', findings: [{ title: 'GET /x', severity: 'drift', file: '/abs/api.ts', line: 7 }] },
+      { tool: 'repoctx', label: 'Merge readiness', status: 'warn', summary: '', findings: [{ title: 'Review state' /* no file */ }] },
+    ],
+  });
+  const ds = toDiagnostics(v);
+  assert.equal(ds.length, 2); // repoctx finding has no file → excluded
+  assert.equal(ds[0].file, path.join('/work/app', 'src/pay.ts')); // relative resolved against repo root
+  assert.equal(ds[0].line, 42);
+  assert.match(ds[0].message, /AI governance: pay\.ts \(red\)/);
+  assert.equal(ds[0].source, 'gate/aiglare');
+  assert.equal(ds[1].file, '/abs/api.ts'); // absolute kept as-is
+});
+
+test('toDiagnostics: null verdict → empty, missing line → 1', () => {
+  assert.deepEqual(toDiagnostics(null), []);
+  const v = verdict({ domains: [{ tool: 'aiglare', label: 'AI governance', status: 'fail', summary: '', findings: [{ title: 'x', file: '/a.ts' }] }] });
+  assert.equal(toDiagnostics(v)[0].line, 1);
+});
+
+test('toTree: finding file is resolved to absolute', () => {
+  const v = verdict({
+    repo: { root: '/work/app', name: 'app' },
+    domains: [{ tool: 'aiglare', label: 'AI governance', status: 'fail', summary: '', findings: [{ title: 'pay.ts', file: 'src/pay.ts', line: 42 }] }],
+  });
+  const node = toTree(v)[0].children[0];
+  assert.equal(node.file, path.join('/work/app', 'src/pay.ts'));
+  assert.equal(node.line, 42);
 });

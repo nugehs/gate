@@ -1,11 +1,12 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { existsSync } from 'node:fs';
-import { runGate, statusBarText, toTree, type TreeNode, type Verdict, type Status } from './gate';
+import { runGate, statusBarText, toTree, toDiagnostics, type TreeNode, type Verdict, type Status } from './gate';
 
 let statusBar: vscode.StatusBarItem;
 let output: vscode.OutputChannel;
 let provider: VerdictProvider;
+let diagnostics: vscode.DiagnosticCollection;
 let lastVerdict: Verdict | null = null;
 let running = false;
 let devCliPath: string | undefined;
@@ -20,6 +21,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   provider = new VerdictProvider();
   context.subscriptions.push(vscode.window.registerTreeDataProvider('gate.verdict', provider));
+
+  diagnostics = vscode.languages.createDiagnosticCollection('gate');
+  context.subscriptions.push(diagnostics);
 
   // When running from source (clients/vscode inside the gate repo), the engine
   // lives two levels up. Installed as a .vsix this won't exist, so it's ignored.
@@ -71,6 +75,38 @@ async function check(): Promise<void> {
     running = false;
     refreshStatusBar();
     provider.refresh(lastVerdict);
+    applyDiagnostics(lastVerdict);
+  }
+}
+
+function applyDiagnostics(v: Verdict | null): void {
+  diagnostics.clear();
+  if (!v) return;
+  const byFile = new Map<string, vscode.Diagnostic[]>();
+  for (const d of toDiagnostics(v)) {
+    const line = Math.max(0, d.line - 1);
+    const range = new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER);
+    const diag = new vscode.Diagnostic(range, d.message, severityFor(d.severity));
+    diag.source = d.source;
+    const list = byFile.get(d.file) ?? [];
+    list.push(diag);
+    byFile.set(d.file, list);
+  }
+  for (const [file, list] of byFile) {
+    diagnostics.set(vscode.Uri.file(file), list);
+  }
+}
+
+function severityFor(status: Status): vscode.DiagnosticSeverity {
+  switch (status) {
+    case 'fail':
+    case 'error':
+      return vscode.DiagnosticSeverity.Error;
+    case 'warn':
+    case 'unknown':
+      return vscode.DiagnosticSeverity.Warning;
+    default:
+      return vscode.DiagnosticSeverity.Information;
   }
 }
 
@@ -104,11 +140,12 @@ class VerdictProvider implements vscode.TreeDataProvider<TreeNode> {
     item.tooltip = node.tooltip;
     if (node.status) item.iconPath = iconFor(node.status);
     if (node.file) {
-      item.command = {
-        command: 'vscode.open',
-        title: 'Open',
-        arguments: [vscode.Uri.file(node.file)],
-      };
+      const args: unknown[] = [vscode.Uri.file(node.file)];
+      if (typeof node.line === 'number') {
+        const l = Math.max(0, node.line - 1);
+        args.push({ selection: new vscode.Range(l, 0, l, 0) });
+      }
+      item.command = { command: 'vscode.open', title: 'Open', arguments: args };
     }
     return item;
   }

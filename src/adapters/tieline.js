@@ -58,6 +58,8 @@ export default {
         severity: 'drift',
         title: d.path ?? d.url ?? d.endpoint,
         method: d.method,
+        file: typeof d.file === 'string' ? d.file : undefined, // absolute path
+        line: typeof d.line === 'number' ? d.line : undefined,
       })),
     };
   },

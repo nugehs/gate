@@ -12,6 +12,7 @@ export interface Finding {
   severity?: string;
   title?: string;
   file?: string;
+  line?: number;
   [key: string]: unknown;
 }
 
@@ -158,7 +159,12 @@ export interface TreeNode {
   status?: Status;
   tooltip?: string;
   file?: string;
+  line?: number;
   children?: TreeNode[];
+}
+
+function resolveFile(file: string, root: string): string {
+  return path.isAbsolute(file) ? file : path.join(root, file);
 }
 
 export function toTree(v: Verdict | null): TreeNode[] {
@@ -173,7 +179,35 @@ export function toTree(v: Verdict | null): TreeNode[] {
       description: f.severity ? String(f.severity) : undefined,
       status: d.status,
       tooltip: f.id ? String(f.id) : undefined,
-      file: typeof f.file === 'string' ? f.file : undefined,
+      file: typeof f.file === 'string' ? resolveFile(f.file, v.repo.root) : undefined,
+      line: typeof f.line === 'number' ? f.line : undefined,
     })),
   }));
+}
+
+export interface DiagDescriptor {
+  file: string; // absolute path
+  line: number; // 1-based
+  severity: Status;
+  message: string;
+  source: string;
+}
+
+/** Flatten a verdict's located findings into diagnostic descriptors (vscode-free). */
+export function toDiagnostics(v: Verdict | null): DiagDescriptor[] {
+  if (!v) return [];
+  const out: DiagDescriptor[] = [];
+  for (const d of v.domains) {
+    for (const f of d.findings ?? []) {
+      if (typeof f.file !== 'string' || !f.file) continue;
+      out.push({
+        file: resolveFile(f.file, v.repo.root),
+        line: typeof f.line === 'number' && f.line > 0 ? f.line : 1,
+        severity: d.status,
+        message: `${d.label}: ${f.title ?? f.id ?? 'finding'}${f.severity ? ` (${f.severity})` : ''}`,
+        source: `gate/${d.tool}`,
+      });
+    }
+  }
+  return out;
 }
