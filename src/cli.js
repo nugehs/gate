@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
 import { runGate } from './orchestrator.js';
 import { renderTerminal } from './report/terminal.js';
 import { startMcpServer } from './mcp.js';
@@ -115,8 +116,19 @@ async function main() {
   if (result.gate.failed) process.exit(1);
 }
 
-// Only run when invoked as a binary — importing this module (e.g. in tests) is side-effect-free.
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Only run when invoked as a binary — importing this module (e.g. in tests) is
+// side-effect-free. Resolve symlinks on both sides so it still fires when run
+// through a symlinked bin (npm link, `npm i -g`, npx), where argv[1] is the link.
+export function isMainModule() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
   main().catch((e) => {
     console.error(`gate: ${e?.stack ?? e}`);
     process.exit(2);

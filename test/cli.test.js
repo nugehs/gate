@@ -1,6 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from '../src/cli.js';
+
+const execFileP = promisify(execFile);
+const cliPath = fileURLToPath(new URL('../src/cli.js', import.meta.url));
 
 test('plain path + flags', () => {
   const { args } = parseArgs(['./svc', '--ci', '--json', '--strict']);
@@ -52,4 +61,19 @@ test('unknown option → error exit 2', () => {
 test('--skip all four parses (caught later as nothingChecked, not here)', () => {
   const { args } = parseArgs(['--skip', 'aiglare,bouncer,tieline,repoctx']);
   assert.equal(args.skip.length, 4);
+});
+
+// Regression: invoked through a symlinked bin (npm link / `npm i -g` / npx),
+// argv[1] is the link path. main() must still run — a published CLI that prints
+// nothing when globally installed is the worst kind of broken.
+test('runs main() when launched via a symlink to the CLI', async () => {
+  const link = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'gate-bin-')), 'gate');
+  fs.symlinkSync(cliPath, link);
+  try {
+    const { stdout } = await execFileP(process.execPath, [link, '--help']);
+    assert.match(stdout, /^gate —/);
+    assert.match(stdout, /gate mcp/);
+  } finally {
+    fs.rmSync(path.dirname(link), { recursive: true, force: true });
+  }
 });

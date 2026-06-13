@@ -4,6 +4,8 @@
 
 [![npm](https://img.shields.io/npm/v/@nugehs/gate?style=flat-square)](https://www.npmjs.com/package/@nugehs/gate) [![license: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE) [![node](https://img.shields.io/node/v/@nugehs/gate?style=flat-square)](https://www.npmjs.com/package/@nugehs/gate)
 
+![gate demo](gate-demo.gif)
+
 `gate` runs [aiglare](https://www.npmjs.com/package/@nugehs/aiglare),
 [bouncer](https://www.npmjs.com/package/@nugehs/bouncer),
 [tieline](https://www.npmjs.com/package/@nugehs/tieline) and
