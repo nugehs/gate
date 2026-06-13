@@ -21,3 +21,17 @@ jobs:
       # resolution path (not just the dev sibling-checkout path). No --ci, so
       # it can't fail the build — it proves end-to-end orchestration resolves.
       - run: node src/cli.js . --json
+
+  extension:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: clients/vscode
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install
+      - run: npm run compile
+      - run: npm test

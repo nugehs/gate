@@ -1,0 +1,108 @@
+{
+  "name": "gate",
+  "displayName": "gate — unified verdict",
+  "description": "One ship/no-ship verdict in your editor: aiglare, bouncer, tieline & repoctx via @nugehs/gate. Works in VS Code and Cursor.",
+  "version": "0.1.0",
+  "publisher": "nugehs",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "gate",
+    "governance",
+    "compliance",
+    "ci",
+    "cursor"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nugehs/gate.git",
+    "directory": "clients/vscode"
+  },
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "gate.check",
+        "title": "gate: Check Workspace",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "gate.refresh",
+        "title": "gate: Refresh",
+        "icon": "$(refresh)"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "gate.verdict",
+          "name": "gate"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "gate.refresh",
+          "when": "view == gate.verdict",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "gate",
+      "properties": {
+        "gate.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the gate binary or its src/cli.js. Empty = resolve from workspace node_modules, then PATH, then npx @nugehs/gate."
+        },
+        "gate.runOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Re-run gate when a file is saved."
+        },
+        "gate.only": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["aiglare", "bouncer", "tieline", "repoctx"]
+          },
+          "default": [],
+          "description": "Run only these checks."
+        },
+        "gate.skip": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["aiglare", "bouncer", "tieline", "repoctx"]
+          },
+          "default": [],
+          "description": "Skip these checks."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && node --test test/*.test.js",
+    "package": "npx --yes @vscode/vsce package --no-dependencies",
+    "publish:vsce": "npx --yes @vscode/vsce publish --no-dependencies",
+    "publish:ovsx": "npx --yes ovsx publish --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}
