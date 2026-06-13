@@ -18,9 +18,11 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
  * @param {{tool:string, pkg:string, binRel:string, binName?:string}} spec
+ * @param {{root?:string}} [opts] - override the repo root the sibling fallback is
+ *   resolved against (defaults to this package's root; injectable for tests).
  * @returns {{entry:string, source:'env'|'node_modules'|'sibling'}|null}
  */
-export function resolveTool({ tool, pkg, binRel, binName }) {
+export function resolveTool({ tool, pkg, binRel, binName }, { root = ROOT } = {}) {
   const envKey = `GATE_${tool.toUpperCase()}_BIN`;
   const override = process.env[envKey];
   if (override && fs.existsSync(override)) {
@@ -43,7 +45,7 @@ export function resolveTool({ tool, pkg, binRel, binName }) {
     // not installed — fall through to the sibling checkout
   }
 
-  const sibling = path.resolve(ROOT, '..', tool, binRel);
+  const sibling = path.resolve(root, '..', tool, binRel);
   if (fs.existsSync(sibling)) return { entry: sibling, source: 'sibling' };
 
   return null;
