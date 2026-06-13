@@ -2,6 +2,14 @@
 
 All notable changes to `@nugehs/gate` are documented here.
 
+## [0.1.1] - 2026-06-13
+
+Release-automation validation; no changes to the published CLI/library.
+
+- Repo: add the VS Code / Cursor extension (`clients/vscode`) and the
+  tag-triggered release workflow (`release.yml`: npm OIDC publish + GitHub
+  Release + MCP Registry).
+
 ## [0.1.0] - 2026-06-13
 
 Initial release.
