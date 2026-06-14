@@ -2,7 +2,7 @@
   "name": "gate",
   "displayName": "gate — unified ship/no-ship verdict",
   "description": "One ship/no-ship verdict in your editor: AI governance, compliance, contract drift & merge readiness via @nugehs/gate. Inline diagnostics, a verdict cockpit, an @gate chat participant, and a Copilot agent tool. VS Code & Cursor.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": "nugehs",
   "license": "MIT",
   "icon": "icon.png",

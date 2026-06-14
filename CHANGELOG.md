@@ -2,6 +2,14 @@
 
 All notable changes to `@nugehs/gate` are documented here.
 
+## [extension 0.3.1] - 2026-06-14
+
+Extension-only release; the engine stays at 0.3.0. No functional changes to the
+extension itself — it is re-cut to validate (and record a clean run of) the now
+fully-automated dual-store pipeline: a single `ext-v*` tag publishes to both the
+VS Code Marketplace and Open VSX, using the hardened workflow from 0.3.0
+(Node 24-ready actions, idempotent release attach).
+
 ## [0.3.0] - 2026-06-14
 
 ### Engine
