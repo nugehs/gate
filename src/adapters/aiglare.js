@@ -7,7 +7,7 @@
 // derive the blocking verdict ourselves — a red surface on a side-effectful
 // sink is the "AI auto-triggers an irreversible action" case.
 
-import { STATUS } from '../verdict.js';
+import { STATUS, MAX_FINDINGS } from '../verdict.js';
 
 const isBlocking = (s) => s.severity === 'red' && s.sink === 'side-effectful';
 
@@ -64,7 +64,7 @@ export default {
       status,
       summary: parts.join(' · '),
       counts: { surfaces: count, red: s.red, amber: s.amber, green: s.green, blocking: blocking.length },
-      findings: ordered.slice(0, 5).map((x) => ({
+      findings: ordered.slice(0, MAX_FINDINGS).map((x) => ({
         id: x.file,
         severity: 'red',
         title: x.file,

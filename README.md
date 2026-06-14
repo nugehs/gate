@@ -145,13 +145,26 @@ Tools:
 
 Registry manifest: [`server.json`](server.json) (`io.github.nugehs/gate`).
 
+## Editor extension
+
+The same normalized verdict drives a **VS Code / Cursor extension**
+([`clients/vscode`](clients/vscode)) — the gates, shifted left from CI into the
+editor:
+
+- a **verdict cockpit** and a checks tree in gate's own Activity Bar container;
+- **inline diagnostics**, hovers, Quick Fixes (mute / open docs) and CodeLens on
+  located findings;
+- **AI-native gating** — an `@gate` chat participant, a `gate_check` tool agent
+  mode can call before it says "done", and an MCP server provider — so the
+  assistant writing the code is checked by the same gate as CI;
+- debounced run-on-save with in-flight cancellation, and multi-root support.
+
 ## Roadmap
 
-gate is the shared spine. The same normalized verdict already drives the CLI,
-the `--ci` gate, and the MCP server above. Next clients on the same JSON:
+gate is the shared spine. The same JSON already drives the CLI, the `--ci` gate,
+the MCP server, and the editor extension above. Next client on the same JSON:
 
 - **Web cockpit** — a repo/PR verdict board over the JSON, unifying the four `*-web` sites.
-- **Editor extension** — shift the gates left from CI into the editor as inline findings.
 
 ## License
 

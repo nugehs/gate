@@ -71,15 +71,20 @@ export interface RunOptions {
   configuredPath?: string;
   only?: string[];
   skip?: string[];
+  /** Treat WARN/UNKNOWN as blocking too (passes --strict to the engine). */
+  strict?: boolean;
+  /** Abort the run (kills the child) when a newer check supersedes this one. */
+  signal?: AbortSignal;
 }
 
 function exec(
   command: string,
   args: string[],
-  cwd: string
+  cwd: string,
+  signal?: AbortSignal
 ): Promise<{ stdout: string; stderr: string; error?: NodeJS.ErrnoException }> {
   return new Promise((resolve) => {
-    execFile(command, args, { cwd, maxBuffer: 32 * 1024 * 1024, timeout: 180_000 }, (error, stdout, stderr) => {
+    execFile(command, args, { cwd, maxBuffer: 32 * 1024 * 1024, timeout: 180_000, signal }, (error, stdout, stderr) => {
       resolve({ stdout, stderr, error: (error as NodeJS.ErrnoException) || undefined });
     });
   });
@@ -95,13 +100,21 @@ function selectionArgs(only?: string[], skip?: string[]): string[] {
 /** Run gate against a workspace and parse its unified verdict. */
 export async function runGate(opts: RunOptions): Promise<Verdict> {
   const inv = resolveGate(opts);
-  const tail = [opts.workspaceRoot, '--json', ...selectionArgs(opts.only, opts.skip)];
+  const tail = [
+    opts.workspaceRoot,
+    '--json',
+    ...selectionArgs(opts.only, opts.skip),
+    ...(opts.strict ? ['--strict'] : []),
+  ];
 
-  let res = await exec(inv.command, [...inv.args, ...tail], opts.workspaceRoot);
+  let res = await exec(inv.command, [...inv.args, ...tail], opts.workspaceRoot, opts.signal);
   if (res.error?.code === 'ENOENT' && inv.command === 'gate') {
     // No local or global gate — fall back to the published package via npx.
-    res = await exec('npx', ['--yes', '@nugehs/gate', ...tail], opts.workspaceRoot);
+    res = await exec('npx', ['--yes', '@nugehs/gate', ...tail], opts.workspaceRoot, opts.signal);
   }
+  // A superseded run shows up here as an AbortError; surface it as a cancellation
+  // the caller can distinguish from a real failure rather than "no output".
+  if (opts.signal?.aborted) throw new Error('gate run cancelled');
   if (res.error?.code === 'ENOENT') {
     throw new Error('Could not run gate. Install it (`npm i -g @nugehs/gate`) or set "gate.path".');
   }
@@ -190,24 +203,166 @@ export interface DiagDescriptor {
   line: number; // 1-based
   severity: Status;
   message: string;
-  source: string;
+  source: string; // `gate/<tool>`
+  tool: string; // the originating tool (aiglare, tieline, …)
+  title: string; // the finding's human label
+  key: string; // stable identity, used to mute a specific finding
 }
 
-/** Flatten a verdict's located findings into diagnostic descriptors (vscode-free). */
-export function toDiagnostics(v: Verdict | null): DiagDescriptor[] {
+const EMPTY_SET: ReadonlySet<string> = new Set<string>();
+
+/** Stable identity for a single located finding — used to mute it in the editor. */
+export function findingKey(tool: string, file: string, line: number, title: string): string {
+  return `${tool}:${file}:${line}:${title}`;
+}
+
+/**
+ * Flatten a verdict's located findings into diagnostic descriptors (vscode-free).
+ * `muted` keys (see {@link findingKey}) are dropped so a user can silence a
+ * specific finding without touching the engine.
+ */
+export function toDiagnostics(v: Verdict | null, muted: ReadonlySet<string> = EMPTY_SET): DiagDescriptor[] {
   if (!v) return [];
   const out: DiagDescriptor[] = [];
   for (const d of v.domains) {
     for (const f of d.findings ?? []) {
       if (typeof f.file !== 'string' || !f.file) continue;
+      const file = resolveFile(f.file, v.repo.root);
+      const line = typeof f.line === 'number' && f.line > 0 ? f.line : 1;
+      const title = String(f.title ?? f.id ?? 'finding');
+      const key = findingKey(d.tool, file, line, title);
+      if (muted.has(key)) continue;
       out.push({
-        file: resolveFile(f.file, v.repo.root),
-        line: typeof f.line === 'number' && f.line > 0 ? f.line : 1,
+        file,
+        line,
         severity: d.status,
-        message: `${d.label}: ${f.title ?? f.id ?? 'finding'}${f.severity ? ` (${f.severity})` : ''}`,
+        message: `${d.label}: ${title}${f.severity ? ` (${f.severity})` : ''}`,
         source: `gate/${d.tool}`,
+        tool: d.tool,
+        title,
+        key,
       });
     }
   }
   return out;
+}
+
+// ---- Multi-root workspace aggregation ----
+
+export interface FolderResult {
+  folder: string; // absolute fsPath of the workspace folder
+  name: string; // display name (folder basename)
+  verdict: Verdict | null; // null when the run failed for this folder
+  error?: string; // populated when the run failed
+}
+
+const STATUS_RANK: Record<string, number> = {
+  pass: 0,
+  skipped: 0,
+  warn: 2,
+  unknown: 2,
+  error: 2,
+  fail: 3,
+};
+
+export type Overall = 'pass' | 'warn' | 'fail' | 'none';
+
+const OVERALL_ICON: Record<Overall, string> = {
+  pass: '$(pass)',
+  warn: '$(warning)',
+  fail: '$(error)',
+  none: '$(circle-outline)',
+};
+
+function folderSummary(r: FolderResult): string {
+  if (r.error) return `error — ${r.error}`;
+  const v = r.verdict;
+  if (!v) return 'not run';
+  if (v.gate?.nothingChecked) return 'nothing checked';
+  return v.verdict.toUpperCase();
+}
+
+/** Worst verdict across every folder. A failed/empty/unchecked run counts as warn, never pass. */
+export function overallStatus(results: FolderResult[]): Overall {
+  if (results.length === 0) return 'none';
+  let rank = 0;
+  for (const r of results) {
+    if (r.error || !r.verdict || r.verdict.gate?.nothingChecked) {
+      rank = Math.max(rank, 2);
+      continue;
+    }
+    rank = Math.max(rank, STATUS_RANK[r.verdict.verdict] ?? 2);
+  }
+  return rank >= 3 ? 'fail' : rank >= 2 ? 'warn' : 'pass';
+}
+
+/** Status-bar text across N folders. One folder = the existing single-verdict view. */
+export function statusBarTextMulti(results: FolderResult[], running: boolean): { text: string; tooltip: string } {
+  if (running) return { text: '$(sync~spin) gate', tooltip: 'gate: running…' };
+  if (results.length === 0) return { text: '$(circle-outline) gate', tooltip: 'gate: not run yet — click to check' };
+  if (results.length === 1) return statusBarText(results[0].verdict, false);
+  const overall = overallStatus(results);
+  const text = `${OVERALL_ICON[overall]} gate: ${overall.toUpperCase()} · ${results.length} folders`;
+  const lines = results.map((r) => `${r.name}: ${folderSummary(r)}`);
+  return { text, tooltip: [`gate · ${results.length} folders`, '', ...lines].join('\n') };
+}
+
+/** Tree across N folders. One folder = domains at the root; many = a folder layer on top. */
+export function toTreeMulti(results: FolderResult[]): TreeNode[] {
+  if (results.length === 0) return [{ label: 'Run gate to see the verdict' }];
+  if (results.length === 1) return toTree(results[0].verdict);
+  return results.map((r) => ({
+    label: r.name,
+    description: folderSummary(r).toLowerCase(),
+    status: r.error ? ('error' as Status) : (r.verdict?.verdict as Status | undefined),
+    tooltip: r.folder,
+    children: r.error ? [{ label: r.error }] : toTree(r.verdict),
+  }));
+}
+
+/** All located diagnostics across every folder, minus muted ones. */
+export function toDiagnosticsMulti(results: FolderResult[], muted: ReadonlySet<string> = EMPTY_SET): DiagDescriptor[] {
+  return results.flatMap((r) => toDiagnostics(r.verdict, muted));
+}
+
+/** Located findings for a single file (powers hovers, code actions and CodeLens). */
+export function findingsForFile(
+  results: FolderResult[],
+  fsPath: string,
+  muted: ReadonlySet<string> = EMPTY_SET
+): DiagDescriptor[] {
+  return toDiagnosticsMulti(results, muted).filter((d) => d.file === fsPath);
+}
+
+const TOOL_DOCS: Record<string, string> = {
+  aiglare: 'https://www.npmjs.com/package/@nugehs/aiglare',
+  bouncer: 'https://www.npmjs.com/package/@nugehs/bouncer',
+  tieline: 'https://www.npmjs.com/package/@nugehs/tieline',
+  repoctx: 'https://www.npmjs.com/package/@nugehs/repoctx',
+};
+
+/** The docs URL for a tool, for the "open rule" code action. */
+export function toolDocsUrl(tool: string): string {
+  return TOOL_DOCS[tool] ?? 'https://github.com/nugehs/gate#readme';
+}
+
+// ---- Editor-facing accessors (implemented by the extension host) ----
+
+/** Read-only view of the latest run — shared with the providers and the cockpit. */
+export interface GateView {
+  results(): FolderResult[];
+  muted(): ReadonlySet<string>;
+  overall(): Overall;
+}
+
+export interface RunRequest {
+  only?: string[];
+  skip?: string[];
+  strict?: boolean;
+  signal?: AbortSignal;
+}
+
+/** Runs gate across the whole workspace (every folder) and returns per-folder results. */
+export interface GateRunner {
+  run(req: RunRequest): Promise<FolderResult[]>;
 }
