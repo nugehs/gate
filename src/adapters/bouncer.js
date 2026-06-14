@@ -5,7 +5,7 @@
 //           unknown — surface not locatable; explicitly NOT a pass
 // No findings at all means no packs are configured for this repo → skipped.
 
-import { STATUS } from '../verdict.js';
+import { STATUS, MAX_FINDINGS } from '../verdict.js';
 
 export default {
   tool: 'bouncer',
@@ -54,7 +54,7 @@ export default {
       status,
       summary: parts.join(', '),
       counts: { rules: findings.length, pass: pass.length, fail: fail.length, unknown: unknown.length },
-      findings: [...fail, ...unknown].slice(0, 5).map((f) => ({
+      findings: [...fail, ...unknown].slice(0, MAX_FINDINGS).map((f) => ({
         id: f.ruleId,
         severity: f.severity,
         title: f.standard,

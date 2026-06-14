@@ -2,7 +2,7 @@
 // Dialect: { verdict: 'PASS'|'WARN'|'FAIL', checks: [ { name, status, summary } ] }
 // This is the merge spine the other three feed; its verdict maps directly.
 
-import { STATUS } from '../verdict.js';
+import { STATUS, MAX_FINDINGS } from '../verdict.js';
 
 export default {
   tool: 'repoctx',
@@ -43,7 +43,7 @@ export default {
       status,
       summary,
       counts: { checks: checks.length, failing: failing.length },
-      findings: failing.slice(0, 5).map((c) => ({
+      findings: failing.slice(0, MAX_FINDINGS).map((c) => ({
         id: c.name,
         severity: String(c.status).toLowerCase(),
         title: c.summary,

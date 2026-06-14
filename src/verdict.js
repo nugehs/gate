@@ -15,6 +15,14 @@ export const STATUS = Object.freeze({
   ERROR: 'error', // the tool could not be run or returned garbage
 });
 
+// Per-domain bound on the `findings` array each adapter carries in the JSON.
+// The summary counts always hold the true totals; this only bounds the
+// per-finding drill-down an editor turns into squiggles and tree rows. Set high
+// so no real repo is truncated — it exists purely as a runaway guard. (Was an
+// arbitrary 5, which starved editor clients of diagnostics on any repo with
+// more than a handful of findings.)
+export const MAX_FINDINGS = 200;
+
 // How bad each status is when rolling up. SKIPPED is invisible to the verdict;
 // UNKNOWN and ERROR sit at WARN level so they never silently pass.
 const RANK = Object.freeze({

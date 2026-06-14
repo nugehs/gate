@@ -1,30 +1,46 @@
 {
   "name": "gate",
-  "displayName": "gate — unified verdict",
-  "description": "One ship/no-ship verdict in your editor: aiglare, bouncer, tieline & repoctx via @nugehs/gate. Works in VS Code and Cursor.",
-  "version": "0.2.0",
+  "displayName": "gate — unified ship/no-ship verdict",
+  "description": "One ship/no-ship verdict in your editor: AI governance, compliance, contract drift & merge readiness via @nugehs/gate. Inline diagnostics, a verdict cockpit, an @gate chat participant, and a Copilot agent tool. VS Code & Cursor.",
+  "version": "0.3.0",
   "publisher": "nugehs",
   "license": "MIT",
   "icon": "icon.png",
-  "engines": {
-    "vscode": "^1.85.0"
+  "galleryBanner": {
+    "color": "#0B1020",
+    "theme": "dark"
   },
+  "engines": {
+    "vscode": "^1.101.0"
+  },
+  "extensionKind": [
+    "workspace"
+  ],
   "categories": [
     "Linters",
+    "Testing",
+    "AI",
     "Other"
   ],
   "keywords": [
     "gate",
     "governance",
     "compliance",
+    "ai",
+    "mcp",
     "ci",
     "cursor"
   ],
+  "qna": "marketplace",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nugehs/gate.git",
     "directory": "clients/vscode"
   },
+  "bugs": {
+    "url": "https://github.com/nugehs/gate/issues"
+  },
+  "homepage": "https://github.com/nugehs/gate#readme",
   "main": "./out/extension.js",
   "activationEvents": [
     "onStartupFinished"
@@ -40,13 +56,48 @@
         "command": "gate.refresh",
         "title": "gate: Refresh",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "gate.showOutput",
+        "title": "gate: Show Output Log",
+        "icon": "$(output)"
+      },
+      {
+        "command": "gate.focusCockpit",
+        "title": "gate: Open Verdict Cockpit"
+      },
+      {
+        "command": "gate.muteFinding",
+        "title": "gate: Mute This Finding"
+      },
+      {
+        "command": "gate.clearMutes",
+        "title": "gate: Clear Muted Findings"
+      },
+      {
+        "command": "gate.installEngine",
+        "title": "gate: Install the gate engine (npm i -g @nugehs/gate)"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "gate",
+          "title": "gate",
+          "icon": "media/gate.svg"
+        }
+      ]
+    },
     "views": {
-      "explorer": [
+      "gate": [
+        {
+          "id": "gate.cockpit",
+          "name": "Verdict",
+          "type": "webview"
+        },
         {
           "id": "gate.verdict",
-          "name": "gate"
+          "name": "Checks"
         }
       ]
     },
@@ -56,6 +107,17 @@
           "command": "gate.refresh",
           "when": "view == gate.verdict",
           "group": "navigation"
+        },
+        {
+          "command": "gate.showOutput",
+          "when": "view == gate.verdict",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "gate.muteFinding",
+          "when": "false"
         }
       ]
     },
@@ -70,7 +132,23 @@
         "gate.runOnSave": {
           "type": "boolean",
           "default": true,
-          "description": "Re-run gate when a file is saved."
+          "description": "Re-run gate when a file is saved (debounced)."
+        },
+        "gate.strict": {
+          "type": "boolean",
+          "default": false,
+          "description": "Treat WARN/UNKNOWN as blocking too (passes --strict to the engine)."
+        },
+        "gate.codeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a CodeLens above lines that carry a gate finding."
+        },
+        "gate.debounceMs": {
+          "type": "number",
+          "default": 500,
+          "minimum": 0,
+          "description": "How long to wait after the last save before re-running gate."
         },
         "gate.only": {
           "type": "array",
@@ -91,7 +169,97 @@
           "description": "Skip these checks."
         }
       }
-    }
+    },
+    "walkthroughs": [
+      {
+        "id": "gate.gettingStarted",
+        "title": "Get started with gate",
+        "description": "One ship/no-ship verdict from aiglare, bouncer, tieline & repoctx — right in your editor.",
+        "steps": [
+          {
+            "id": "gate.install",
+            "title": "Install the engine",
+            "description": "gate runs the @nugehs/gate CLI under the hood. Install it once, globally or in your project.\n[Install gate](command:gate.installEngine)",
+            "media": {
+              "markdown": "media/walkthrough/install.md"
+            }
+          },
+          {
+            "id": "gate.run",
+            "title": "Run your first check",
+            "description": "Run the unified gate over your workspace and read the verdict in the cockpit.\n[Check workspace](command:gate.check)",
+            "media": {
+              "markdown": "media/walkthrough/run.md"
+            }
+          },
+          {
+            "id": "gate.ai",
+            "title": "Ask the AI",
+            "description": "Type @gate in Copilot Chat to ask \"can this ship?\" — or let agent mode call the gate tool before it says a change is done.",
+            "media": {
+              "markdown": "media/walkthrough/ai.md"
+            }
+          }
+        ]
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "gate_check",
+        "tags": ["governance", "ci", "nugehs", "ship"],
+        "toolReferenceName": "gate",
+        "displayName": "Gate: can this ship?",
+        "modelDescription": "Run the nugehs gate against the current workspace and return one normalized ship/no-ship verdict. It merges four deterministic checks — aiglare (AI/LLM governance guardrails), bouncer (compliance controls), tieline (frontend/backend contract drift) and repoctx (merge readiness) — into a single verdict (pass | warn | fail) with the blocking reasons. Call this before telling the user a change is ready to merge, ship, or deploy; a 'fail' verdict means do not ship.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(shield)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "only": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["aiglare", "bouncer", "tieline", "repoctx"]
+              },
+              "description": "Run only these checks."
+            },
+            "skip": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["aiglare", "bouncer", "tieline", "repoctx"]
+              },
+              "description": "Skip these checks."
+            },
+            "strict": {
+              "type": "boolean",
+              "description": "Treat warnings and unknowns as blocking too."
+            }
+          }
+        }
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "nugehs.gate",
+        "name": "gate",
+        "fullName": "gate",
+        "description": "Can this ship? The unified nugehs verdict.",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "why",
+            "description": "Explain the current blocking reasons in plain language."
+          }
+        ]
+      }
+    ],
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "nugehs-gate",
+        "label": "gate (nugehs)"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -104,7 +272,7 @@
   },
   "devDependencies": {
     "@types/node": "^20",
-    "@types/vscode": "^1.85.0",
+    "@types/vscode": "^1.101.0",
     "typescript": "^5.4.0"
   }
 }

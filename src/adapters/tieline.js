@@ -4,7 +4,7 @@
 //   unverifiable — call shape couldn't be resolved on one side
 // All-zero totals means no contract map was built (not configured) → skipped.
 
-import { STATUS } from '../verdict.js';
+import { STATUS, MAX_FINDINGS } from '../verdict.js';
 
 export default {
   tool: 'tieline',
@@ -53,7 +53,7 @@ export default {
       status,
       summary: parts.join(' · '),
       counts: t,
-      findings: (json.drift ?? []).slice(0, 5).map((d) => ({
+      findings: (json.drift ?? []).slice(0, MAX_FINDINGS).map((d) => ({
         id: `${d.method ?? ''} ${d.path ?? d.url ?? ''}`.trim(),
         severity: 'drift',
         title: d.path ?? d.url ?? d.endpoint,
